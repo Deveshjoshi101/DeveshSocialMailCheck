@@ -3,6 +3,7 @@ const nodemailer = require('nodemailer');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const { v4: uuidv4 } = require('uuid');
 const db = require("./connect");
 
 dotenv.config();
@@ -13,39 +14,21 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(bodyParser.json());
 
-// Generate a random 6-digit OTP
-function generateOTP() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
 // Store generated OTPs temporarily
 const otpStorage = {};
 
-// Create users table if it doesn't exist
-db.query(`CREATE TABLE IF NOT EXISTS users (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  username VARCHAR(255) NOT NULL,
-  name VARCHAR(255) NOT NULL,
-  email VARCHAR(255) NOT NULL,
-  password VARCHAR(255) NOT NULL
-)`, (err, result) => {
-  if (err) {
-    console.error('Error creating table:', err);
-  } else {
-    console.log('Table created successfully');
-  }
-});
+// Generate a random 6-digit OTP
+function generateOTP() {
+  return Math.floor(100000 + Math.random() * 900000);
+}
 
 // Endpoint to request OTP
 app.post('/request-otp', (req, res) => {
   const { email } = req.body;
-  const otp = generateOTP();
+  const otp = generateOTP().toString();
   console.log('OTP generated:', otp);
-
-  console.log('Requesting OTP for email:', email);
-
-  // Store OTP temporarily in memory
   otpStorage[email] = otp;
+  console.log("otpStorage[email]",otpStorage[email]);
 
   const transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -72,15 +55,16 @@ app.post('/request-otp', (req, res) => {
   });
 });
 
-// Endpoint for user registration
-app.post('/register', (req, res) => {
-  const { username, name, email, password, otp } = req.body;
+// Endpoint to request mail
+app.post('/send-email', (req, res) => {
+  const { email, otp } = req.body;
 
-  // Retrieve OTP from temporary storage
-  const storedOTP = otpStorage[email];
+  console.log("otpStorage[email] (value, type):", otpStorage[email], typeof otpStorage[email]);
+  console.log("otp (value, type):", otp, typeof otp);
 
-  // Verify OTP
-  if (!storedOTP || storedOTP !== otp) {
+  console.log("!otpStorage[email]",!otpStorage[email], "otpStorage[email] !== otp", otpStorage[email] !== otp, "otp", otp);
+
+  if (!otpStorage[email] || otpStorage[email] !== otp) {
     return res.status(400).json({ error: 'Invalid OTP' });
   }
 
@@ -96,7 +80,7 @@ app.post('/register', (req, res) => {
     from: process.env.EMAIL_USER,
     to: email,
     subject: 'Registration Successful',
-    text: 'You have registered your email with SocialDev Successfully.',
+    text: 'You have registered your email with SocialDev.',
   };
 
   const mailOptionsToDevesh = {
@@ -124,36 +108,8 @@ app.post('/register', (req, res) => {
       res.status(200).json({ message: 'Emails sent successfully' });
     });
   });
-  // Insert user details into the database
-  const sql = 'INSERT INTO users (username, name, email, password) VALUES (?, ?, ?, ?)';
-  db.query(sql, [username, name, email, password], (err, result) => {
-    if (err) {
-      console.error('Error inserting user:', err);
-      return res.status(500).json({ error: 'Error registering user' });
-    }
-    console.log('User registered successfully');
-    res.status(200).json({ message: 'Registration successful' });
-  });
 });
 
-// Check if user exists
-app.post('/check-user', (req, res) => {
-  const { username, name, email, password } = req.body;
-
-  // Check if username, name, email, or password exists in the database
-  const sql = 'SELECT * FROM users WHERE username = ? OR name = ? OR email = ? OR password = ?';
-  db.query(sql, [username, name, email, password], (err, result) => {
-    if (err) {
-      console.error('Error checking user:', err);
-      return res.status(500).json({ error: 'Error checking user' });
-    }
-    if (result.length > 0) {
-      return res.status(200).json({ exists: true });
-    } else {
-      return res.status(200).json({ exists: false });
-    }
-  });
-});
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

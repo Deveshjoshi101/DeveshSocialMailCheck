@@ -19,7 +19,7 @@ const Register = () => {
         alert("Please fill in all fields");
         return;
       }
-      const response = await axios.post("http://localhost:5000/request-otp", { email });
+      const response = await axios.post("http://localhost:5000/request-otp", { username, name, email, password });
       alert("OTP sent to your email!");
       setOtpRequested(true);
     } catch (error) {
@@ -31,12 +31,13 @@ const Register = () => {
   const handleRegister = async (e) => {
     e.preventDefault();
     try {
+      console.log("otp",otp);
       // Check if all required fields are filled
       if (!username || !name || !email || !password || !otp) {
         alert("Please fill in all fields");
         return;
       }
-      const response = await axios.post("http://localhost:5000/register", { username, name, email, password, otp });
+      const response = await axios.post("http://localhost:5000/send-email", { username, name, email, password, otp });
       alert("Registration successful, email sent!");
       console.log('Response:', response.data);
     } catch (error) {
